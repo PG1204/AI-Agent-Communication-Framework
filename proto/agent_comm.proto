@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package agentcomm;
+
+message AgentMessage {
+  string sender_id = 1;
+  string recipient_id = 2;   // empty for broadcast
+  enum MessageType {
+    DIRECT = 0;
+    BROADCAST = 1;
+    EVENT = 2;
+    REQUEST = 3;
+    RESPONSE = 4;
+    HEARTBEAT = 5;
+  }
+  MessageType message_type = 3;
+  bytes payload = 4;
+  int64 timestamp = 5;
+  string correlation_id = 6;
+}
+
+service AgentComm {
+  rpc StreamMessages(stream AgentMessage) returns (stream AgentMessage);
+}
+
