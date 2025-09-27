@@ -23,3 +23,17 @@ service AgentComm {
   rpc StreamMessages(stream AgentMessage) returns (stream AgentMessage);
 }
 
+message RegisterAgentRequest {
+  string agent_name = 1;
+  string agent_type = 2;
+}
+
+message RegisterAgentResponse {
+  string agent_id = 1;
+  string token = 2;
+  string message = 3;
+}
+
+service AgentRegistry {
+  rpc RegisterAgent(RegisterAgentRequest) returns (RegisterAgentResponse);
+}
