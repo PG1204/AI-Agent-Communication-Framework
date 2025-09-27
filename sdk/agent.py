@@ -32,12 +32,26 @@ class AgentClient:
     async def run(self):
         async with grpc.aio.insecure_channel(self.server_address) as channel:
             stub = agent_comm_pb2_grpc.AgentCommStub(channel)
-            call = stub.StreamMessages(self.message_generator())
-
+            metadata = [("authorization", f"Bearer {self.token}")]
+            call = stub.StreamMessages(self.message_generator(), metadata=metadata)
+            
             receive_task = asyncio.create_task(self.receive_messages(call))
             await receive_task
+    
+    async def register_agent(self):
+        async with grpc.aio.insecure_channel(self.server_address) as channel:
+            stub = agent_comm_pb2_grpc.AgentRegistryStub(channel)
+            request = agent_comm_pb2.RegisterAgentRequest(
+                agent_name=self.agent_id,
+                agent_type="basic"
+            )
+            response = await stub.RegisterAgent(request)
+            print(f"Registered with ID: {response.agent_id}, token: {response.token}")
+            self.token = response.token
+            self.agent_id = response.agent_id
+
 
 if __name__ == "__main__":
     agent = AgentClient(agent_id="agent-1")
+    asyncio.run(agent.register_agent())
     asyncio.run(agent.run())
-

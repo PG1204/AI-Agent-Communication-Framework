@@ -95,3 +95,75 @@ class AgentComm(object):
             timeout,
             metadata,
             _registered_method=True)
+
+
+class AgentRegistryStub(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.RegisterAgent = channel.unary_unary(
+                '/agentcomm.AgentRegistry/RegisterAgent',
+                request_serializer=agent__comm__pb2.RegisterAgentRequest.SerializeToString,
+                response_deserializer=agent__comm__pb2.RegisterAgentResponse.FromString,
+                _registered_method=True)
+
+
+class AgentRegistryServicer(object):
+    """Missing associated documentation comment in .proto file."""
+
+    def RegisterAgent(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_AgentRegistryServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'RegisterAgent': grpc.unary_unary_rpc_method_handler(
+                    servicer.RegisterAgent,
+                    request_deserializer=agent__comm__pb2.RegisterAgentRequest.FromString,
+                    response_serializer=agent__comm__pb2.RegisterAgentResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'agentcomm.AgentRegistry', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('agentcomm.AgentRegistry', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class AgentRegistry(object):
+    """Missing associated documentation comment in .proto file."""
+
+    @staticmethod
+    def RegisterAgent(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/agentcomm.AgentRegistry/RegisterAgent',
+            agent__comm__pb2.RegisterAgentRequest.SerializeToString,
+            agent__comm__pb2.RegisterAgentResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
