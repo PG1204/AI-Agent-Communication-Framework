@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import agent_comm_pb2 as agent__comm__pb2
+import agent_comm_pb2 as agent__comm__pb2
 
 GRPC_GENERATED_VERSION = '1.75.1'
 GRPC_VERSION = grpc.__version__
