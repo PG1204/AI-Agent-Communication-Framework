@@ -5,6 +5,9 @@ from agent_comm_pb2 import AgentMessage
 from agent_comm_pb2_grpc import AgentCommStub
 import grpc
 import json
+import time
+import random
+
 
 class IntelligentAgent:
     def __init__(self, agent_id: str, system_prompt: str, groq_api_key: str, 
@@ -115,8 +118,8 @@ class IntelligentAgent:
                 break
             yield msg
     
-    async def get_ai_response(self, sender, user_message):
-        """Get response from Groq"""
+    async def get_ai_response(self, sender, user_message, max_retries=3):
+        """Get response from Groq with retry logic for rate limits"""
         if sender not in self.conversation_history:
             self.conversation_history[sender] = [
                 {"role": "system", "content": self.system_prompt}
@@ -126,25 +129,47 @@ class IntelligentAgent:
             {"role": "user", "content": user_message}
         )
         
-        try:
-            response = await self.client.chat.completions.create(
-                model="llama-3.1-8b-instant",
-                messages=self.conversation_history[sender],
-                temperature=0.7,
-                max_tokens=500
-            )
-            
-            ai_response = response.choices[0].message.content
-            
-            self.conversation_history[sender].append(
-                {"role": "assistant", "content": ai_response}
-            )
-            
-            return ai_response
-            
-        except Exception as e:
-            print(f"❌ Error calling Groq: {e}")
-            return f"Sorry, I encountered an error: {str(e)}"
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.chat.completions.create(
+                    model="llama-3.1-8b-instant",
+                    messages=self.conversation_history[sender],
+                    temperature=0.7,
+                    max_tokens=500  # Reduced to save tokens
+                )
+                
+                ai_response = response.choices[0].message.content
+                
+                self.conversation_history[sender].append(
+                    {"role": "assistant", "content": ai_response}
+                )
+                
+                return ai_response
+                
+            except Exception as e:
+                error_str = str(e)
+                
+                # Check if it's a rate limit error
+                if "rate_limit_exceeded" in error_str or "429" in error_str:
+                    if attempt < max_retries - 1:
+                        # Extract wait time from error or use exponential backoff
+                        wait_time = (2 ** attempt) + random.uniform(0, 1)
+                        print(f"⏳ Rate limit hit. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        print(f"❌ Max retries reached after rate limits")
+                        # Remove the failed user message from history
+                        self.conversation_history[sender].pop()
+                        return "I'm currently experiencing high demand. Please try again in a moment! 🙏"
+                
+                # For other errors, fail immediately
+                else:
+                    print(f"❌ Error calling Groq: {e}")
+                    self.conversation_history[sender].pop()
+                    return f"Sorry, I encountered an error. Please try again."
+        
+        # Should not reach here, but just in case
+        return "I'm temporarily unavailable. Please try again shortly."
     
     async def handle_agent_request(self, sender_id, request_data):
         """Handle requests from other agents"""

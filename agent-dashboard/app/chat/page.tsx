@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { Bot, Send, Loader2, CheckCircle2, XCircle, User, Sparkles, Wifi } from 'lucide-react';
+import { TypingIndicator } from '../components/TypingIndicator';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -31,6 +32,7 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isConnected, setIsConnected] = useState(false);
+  const [typingAgents, setTypingAgents] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -40,7 +42,7 @@ export default function ChatPage() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, typingAgents]);
 
   // Load agents periodically
   useEffect(() => {
@@ -96,6 +98,15 @@ export default function ChatPage() {
       try {
         const newMessage: Message = JSON.parse(event.data);
         console.log('📨 New message received:', newMessage);
+
+        // Remove typing indicator when agent responds
+        if (newMessage.sender_id !== agentId) {
+          setTypingAgents(prev => {
+            const updated = new Set(prev);
+            updated.delete(newMessage.sender_id);
+            return updated;
+          });
+        }
 
         setMessages((prevMessages) => {
           // Check if message already exists (check both temp and real IDs)
@@ -209,11 +220,14 @@ export default function ChatPage() {
 
     setIsLoading(true);
     const messageContent = messageInput;
-    setMessageInput(''); // Clear input immediately for better UX
+    setMessageInput('');
+
+    // Show typing indicator
+    setTypingAgents(prev => new Set(prev).add(selectedAgent));
 
     // Create optimistic message to show immediately
     const optimisticMessage: Message = {
-      message_id: `temp-${Date.now()}`, // Temporary ID
+      message_id: `temp-${Date.now()}`,
       sender_id: agentId,
       recipient_id: selectedAgent,
       message_type: 1,
@@ -255,7 +269,13 @@ export default function ChatPage() {
       setMessages((prevMessages) => 
         prevMessages.filter(msg => msg.message_id !== optimisticMessage.message_id)
       );
-      setMessageInput(messageContent); // Restore message on error
+      // Remove typing indicator on error
+      setTypingAgents(prev => {
+        const updated = new Set(prev);
+        updated.delete(selectedAgent);
+        return updated;
+      });
+      setMessageInput(messageContent);
     } finally {
       setIsLoading(false);
     }
@@ -400,27 +420,36 @@ export default function ChatPage() {
                   </div>
                 </div>
               ) : (
-                messages.map((msg) => (
-                  <div
-                    key={msg.message_id}
-                    className={`flex ${msg.sender_id === agentId ? 'justify-end' : 'justify-start'}`}
-                  >
+                <>
+                  {messages.map((msg) => (
                     <div
-                      className={`max-w-xl px-4 py-3 rounded-2xl ${
-                        msg.sender_id === agentId
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-slate-700 text-gray-100'
-                      }`}
+                      key={msg.message_id}
+                      className={`flex ${msg.sender_id === agentId ? 'justify-end' : 'justify-start'}`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.payload}</p>
-                      <p className={`text-xs mt-1 ${
-                        msg.sender_id === agentId ? 'text-purple-200' : 'text-gray-400'
-                      }`}>
-                        {new Date(msg.timestamp).toLocaleTimeString()}
-                      </p>
+                      <div
+                        className={`max-w-xl px-4 py-3 rounded-2xl ${
+                          msg.sender_id === agentId
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-slate-700 text-gray-100'
+                        }`}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.payload}</p>
+                        <p className={`text-xs mt-1 ${
+                          msg.sender_id === agentId ? 'text-purple-200' : 'text-gray-400'
+                        }`}>
+                          {new Date(msg.timestamp).toLocaleTimeString()}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  
+                  {/* Show typing indicator if agent is typing */}
+                  {typingAgents.has(selectedAgent) && (
+                    <div className="flex justify-start">
+                      <TypingIndicator agentName={selectedAgent} />
+                    </div>
+                  )}
+                </>
               )}
               <div ref={messagesEndRef} />
             </div>
